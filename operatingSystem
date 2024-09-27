@@ -12,5 +12,3 @@ return 0;
 
 g++ main.cpp -o operatingSystem
 
-git clone <https://github.com/Deadloxz/Operating-Systems-w-T.git>
-cd <operatingSystems>
