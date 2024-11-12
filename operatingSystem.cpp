@@ -15,6 +15,17 @@ struct User {
 string username;
 string password;
 };
+
+struct Process {
+int id;
+vector<int> burstSequence;
+int arrivalTime;
+int currentBurstIndex;
+int remainingTime;
+string state;
+Process(int id, vector<int> bursts, int arrival) : id(id), burstSequence(bursts), arrivalTime(arrival), currentBurstIndex(0), remainingTime(bursts[0]), state("ready") {}
+};
+
 int main()
 {
 
