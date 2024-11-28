@@ -121,32 +121,30 @@ public:
                 }
             }
 
-updateWaitingQueue(waitingQueue, readyQueue);
 
-if (readyQueue.empty() && waitingQueue.empty() && currentProcess == nullptr) {
-cout << "Cycle " << cycle << ": Simulation complete. \n";
-break;
-}
-    cycle++;
-}
+            updateWaitingQueue(waitingQueue, readyQueue);
 
-if (cycle >=cycleLimit) {
-cout << "Simulation reached the random cycle limit of " << cycleLimit << " cycles. \n";
-}
-}
+            if (readyQueue.empty() && waitingQueue.empty() && currentProcess == nullptr) {
+                cout << "Cycle " << cycle << ": Simulation complete.\n";
+                break;
+            }
+
+            cycle++;
+        }
+
+        if (cycle >= cycleLimit) {
+            cout << "Simulation reached the random cycle limit of " << cycleLimit << " cycles.\n";
+        }
+    }
 
 private:
     vector<User> users;
     bool loggedIn;
     int processCounter;
+    MMU mmu;
 
-    // Boot sequence with animation
     void boot() {
         cout << "System is now booting...\n";
-        sleep(2);
-        cout << "Winds are picking up...\n";
-        sleep(2);
-        cout << "Tumbleweeds are tumbling...\n";
         sleep(2);
         cout << "System is now booted.\n";
     }
@@ -168,7 +166,6 @@ private:
         return false;
     }
 
-    // Randomly create a process with alternating CPU/IO bursts
     Process* createRandomProcess() {
         vector<int> bursts;
         int numBursts = 2 + (rand() % 4);
@@ -178,14 +175,12 @@ private:
         return new Process(processCounter++, bursts, 0);
     }
 
-    // Select process for FCFS scheduling
     Process* selectFCFS(queue<Process*>& readyQueue) {
         Process* p = readyQueue.front();
         readyQueue.pop();
         return p;
     }
 
-    // Select process for SJF scheduling
     Process* selectSJF(queue<Process*>& readyQueue) {
         vector<Process*> temp;
         while (!readyQueue.empty()) {
@@ -203,7 +198,13 @@ private:
         return p;
     }
 
-    // Update waiting queue for IO bursts
+    void generateMemoryInstruction(Process* process) {
+        int virtualAddress = rand() % (NUM_PAGES * PAGE_SIZE);
+        int physicalAddress = mmu.translate(virtualAddress, process);
+        cout << "Process " << process->id << " executes memory instruction (virtual: " << virtualAddress
+             << ", physical: " << physicalAddress << ")\n";
+    }
+
     void updateWaitingQueue(vector<Process*>& waitingQueue, queue<Process*>& readyQueue) {
         for (auto it = waitingQueue.begin(); it != waitingQueue.end(); ) {
             Process* p = *it;
@@ -220,15 +221,14 @@ private:
         }
     }
 
-    // Handle completion of a CPU burst
     void handleBurstCompletion(Process* p, queue<Process*>& readyQueue, vector<Process*>& waitingQueue) {
         p->currentBurstIndex++;
         if (p->currentBurstIndex < p->burstSequence.size()) {
-            if (p->currentBurstIndex % 2 == 1) { // IO burst
+            if (p->currentBurstIndex % 2 == 1) {
                 p->state = "waiting";
                 p->remainingTime = p->burstSequence[p->currentBurstIndex];
                 waitingQueue.push_back(p);
-            } else { // Next CPU burst
+            } else {
                 p->state = "ready";
                 p->remainingTime = p->burstSequence[p->currentBurstIndex];
                 readyQueue.push(p);
@@ -245,4 +245,3 @@ int main() {
     os.runOS();
     return 0;
 }
-
