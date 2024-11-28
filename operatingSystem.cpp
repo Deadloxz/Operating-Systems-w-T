@@ -9,7 +9,7 @@
 
 using namespace std;
 
-const int MAX_CYCLE_LIMIT = 10000
+const int MAX_CYCLE_LIMIT = 10000;
 
 struct User {
 string username;
@@ -55,28 +55,31 @@ queue<Process*> readyQueue;
 vector<Process*> waitingQueue;
 Process* currentProcess = nullptr;
 
-while (cycle < cycleLimit) {
+while (cycle < cycleLimit) { // Use random cycle limit
+            // Create new process every 5 cycles
+            if (cycle % 5 == 0) {
+                Process* newProcess = createRandomProcess();
+                readyQueue.push(newProcess);
+                cout << "Cycle " << cycle << ": Process " << newProcess->id << " created.\n";
+            }
 
-if (cycle % 5 == 0) {
-Process* newProcess = createRandomProcess();
-readyQueue.push(newProcess);
-cout << "Cycle " << cycle << ": Process " << newProcess->id << "starts running.\n";
-}
+            // CPU scheduling
+            if (currentProcess == nullptr && !readyQueue.empty()) {
+                currentProcess = (schedulingAlgorithm == "FCFS") ? selectFCFS(readyQueue) : selectSJF(readyQueue);
+                currentProcess->state = "running";
+                cout << "Cycle " << cycle << ": Process " << currentProcess->id << " starts running.\n";
+            }
 
-if (currentProcess == nullptr && !readyQueue.empty()) {
-currentProcess = (schedulingAlgorithm == "FCFS") ? selectFCFS(readyQueue) : selectSJF(readyQueue);
-currentProcess->state = "running";
-cout << "Cycle " << cycle << ": Process " currentProcess->id << " starts running. \n";
-}
+            // Process current CPU burst
+            if (currentProcess != nullptr) {
+                currentProcess->remainingTime--;
+                if (currentProcess->remainingTime == 0) {
+                    cout << "Cycle " << cycle << ": Process " << currentProcess->id << " completes CPU burst.\n";
+                    handleBurstCompletion(currentProcess, readyQueue, waitingQueue);
+                    currentProcess = nullptr;
+                }
+            }
 
-if (currentProcess != nullptr) {
-  currentProcess->remainingTime--;
-if (currentProcess->remainingTime == 0) {
-    cout << "Cycle " << cycle << ": Process " currentProcess ->id << " completes CPU burst. \n";
-    handleBurstCompletion(currentProcess, readyQueue, waitingQueue);
-    currentProcess = nullptr;
-  }
-}
 
 updateWaitingQueue(waitingQueue, readyQueue);
 
@@ -93,132 +96,113 @@ cout << "Simulation reached the random cycle limit of " << cycleLimit << " cycle
 }
 
 private:
-  vector <user> users;
-  boot loggedIn;
-  int processCounter;
-  //boot sequence w/ animation
-void boot()
-{
-cout << "System is now booting..." << endl;
-sleep(2);
-cout << "Winds are picking up..." << endl;
-sleep(2);
-cout << "Tumbleweeds are tumbling..." << endl;
-sleep(2);
-cout << "System is now booted." << endl;
-}
+    vector<User> users;
+    bool loggedIn;
+    int processCounter;
 
-bool login()
-{
-string username, password;
-cout << "Enter Username: " << end;
-cin >> username;
-cout << "Enter password: " << endl;
-cin >> password;
+    // Boot sequence with animation
+    void boot() {
+        cout << "System is now booting...\n";
+        sleep(2);
+        cout << "Winds are picking up...\n";
+        sleep(2);
+        cout << "Tumbleweeds are tumbling...\n";
+        sleep(2);
+        cout << "System is now booted.\n";
+    }
 
-for (const auto& user : users )
-{
-if (user.username == username && user.password == password)
-{
-cout << "Welcome DustDevil!" << endl;
-return true;
-}
-}
-cout << "Login Failed. Try again... " << endl;
-return false;
-}
+    bool login() {
+        string username, password;
+        cout << "Enter username: ";
+        cin >> username;
+        cout << "Enter password: ";
+        cin >> password;
 
-//Randomly create a process with alterning CPU / IO bursts
+        for (const auto& user : users) {
+            if (user.username == username && user.password == password) {
+                cout << "Welcome Dust Devil!\n";
+                return true;
+            }
+        }
+        cout << "Login failed. Try again.\n";
+        return false;
+    }
 
-Process* createRandomProcess()
-{
-vector <int> bursts;
-int numBursts = 2 + (rand() % 4);
-for (int i = 0; i < numBursts; ++i)
-{
-bursts.pushback(1 + rand() % 10);
-}
-return new Process(processCounter++, bursts, 0);
-}
+    // Randomly create a process with alternating CPU/IO bursts
+    Process* createRandomProcess() {
+        vector<int> bursts;
+        int numBursts = 2 + (rand() % 4);
+        for (int i = 0; i < numBursts; ++i) {
+            bursts.push_back(1 + rand() % 10);
+        }
+        return new Process(processCounter++, bursts, 0);
+    }
 
-// select process for FCFS scheduling
-Process* selectSJF(queue<Process*>& readyQueue)
-{
-vector <Process*>temp;
-while(!readyQueue.empty())
-{
-  temp.push_back(readyQueue.front());
-  readyQueue.pop();
-}
-auto shortest = min_element(temp.begin(), temp.end(),[](Process* a, Process* b)
-{
-return a->remainingTime < b->remainingTime;
-});
-Process* p = *shortest;
-temp.erase(shortest);
-for (auto proc : temp)
-{
-readyQueue.push(proc);
-}
-return p;
-}
+    // Select process for FCFS scheduling
+    Process* selectFCFS(queue<Process*>& readyQueue) {
+        Process* p = readyQueue.front();
+        readyQueue.pop();
+        return p;
+    }
 
-//update waiting queue for IO bursts
-void updateWaitingQueue(vector<Process*>& waitingQueue, queue<Process*>& readyQueue)
-{
-for (auto it = waitingQueue.begin(); it!= waitingQueue.end();)
-{
-Process* p = *it;
-p->remainingTime--;
-if (p->remainingTime == 0)
-{
-p->currentBurstsIndex++;
-p->state = "ready";
-p->remainingTime = p->burstsSequence[p->currentBurstsIndex];
-readyQueue.push(p);
-it = waitingQueue.erase(it);
-}
-else
-{
-++it;
-}
-}
-}
+    // Select process for SJF scheduling
+    Process* selectSJF(queue<Process*>& readyQueue) {
+        vector<Process*> temp;
+        while (!readyQueue.empty()) {
+            temp.push_back(readyQueue.front());
+            readyQueue.pop();
+        }
+        auto shortest = min_element(temp.begin(), temp.end(), [](Process* a, Process* b) {
+            return a->remainingTime < b->remainingTime;
+        });
+        Process* p = *shortest;
+        temp.erase(shortest);
+        for (auto proc : temp) {
+            readyQueue.push(proc);
+        }
+        return p;
+    }
 
-//Handle the completion of a cpu bursts
-void handleBurstsCompletion(Process* p,queue<Process*>& readyQueue, vector<Process*>& waitingQueue)
-{
-p->currentBurstsIndex++;
-if (p->currentBurstsIndex < p->burstsSequence.size())
-{
-if (p->currentBurstsIndex % 2 == 1)
-{
-//IO bursts
-p->state = "waiting";
-p->remainingTime = p->burstsSequence[p->currentBurstsIndex];
-waitingQueue.push_back(p);
-}
-else
-{
-//Next CPU bursts
-p->state = "ready";
-p->remainingTime = p->burstSequence[p->currentBurstIndex];
-readyQueue.push(p);
-}
-}
-else
-{
-p->state = "finished";
-cout << "Process " << p->id << " has finished all bursts. " << endl;
-}
-}
+    // Update waiting queue for IO bursts
+    void updateWaitingQueue(vector<Process*>& waitingQueue, queue<Process*>& readyQueue) {
+        for (auto it = waitingQueue.begin(); it != waitingQueue.end(); ) {
+            Process* p = *it;
+            p->remainingTime--;
+            if (p->remainingTime == 0) {
+                p->currentBurstIndex++;
+                p->state = "ready";
+                p->remainingTime = p->burstSequence[p->currentBurstIndex];
+                readyQueue.push(p);
+                it = waitingQueue.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    // Handle completion of a CPU burst
+    void handleBurstCompletion(Process* p, queue<Process*>& readyQueue, vector<Process*>& waitingQueue) {
+        p->currentBurstIndex++;
+        if (p->currentBurstIndex < p->burstSequence.size()) {
+            if (p->currentBurstIndex % 2 == 1) { // IO burst
+                p->state = "waiting";
+                p->remainingTime = p->burstSequence[p->currentBurstIndex];
+                waitingQueue.push_back(p);
+            } else { // Next CPU burst
+                p->state = "ready";
+                p->remainingTime = p->burstSequence[p->currentBurstIndex];
+                readyQueue.push(p);
+            }
+        } else {
+            p->state = "finished";
+            cout << "Process " << p->id << " has finished all bursts.\n";
+        }
+    }
 };
 
-int main()
-{
-DustemOS os;
-os.runOS();
-
-return 0;
+int main() {
+    DustemOS os;
+    os.runOS();
+    return 0;
 }
 
