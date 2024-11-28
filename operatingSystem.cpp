@@ -6,80 +6,120 @@
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
+#include <unordered_map> 
 
 using namespace std;
 
-const int MAX_CYCLE_LIMIT = 10000;
+const int MAX_CYCLE_LIMIT = 10000;   // Maximum possible cycle limit
+const int PAGE_SIZE = 4096;          // 4 KB page size
+const int NUM_PAGES = 256;           // Number of virtual pages
 
 struct User {
-string username;
-string password;
+    string username;
+    string password;
 };
 
 struct Process {
-int id;
-vector<int> burstSequence;
-int arrivalTime;
-int currentBurstIndex;
-int remainingTime;
-string state;
+    int id;
+    vector<int> burstSequence;
+    int arrivalTime;
+    int currentBurstIndex;
+    int remainingTime;
+    string state;
+    unordered_map<int, int> pageTable; 
 
-Process(int id, vector<int> bursts, int arrival) : id(id), burstSequence(bursts), arrivalTime(arrival), currentBurstIndex(0), remainingTime(bursts[0]), state("ready") {}
+    Process(int id, vector<int> bursts, int arrival)
+        : id(id), burstSequence(bursts), arrivalTime(arrival), currentBurstIndex(0), remainingTime(bursts[0]), state("ready") {
+        initializePageTable();
+    }
+
+    void initializePageTable() {
+        for (int i = 0; i < NUM_PAGES; ++i) {
+            pageTable[i] = -1; 
+        }
+    }
+};
+
+class MMU {
+    unordered_map<int, int> tlb; 
+
+public:
+    int translate(int virtualAddress, Process* process) {
+        int pageNumber = virtualAddress / PAGE_SIZE;
+        int offset = virtualAddress % PAGE_SIZE;
+
+        if (tlb.find(pageNumber) != tlb.end()) {
+            return tlb[pageNumber] * PAGE_SIZE + offset;
+        }
+
+        int frameNumber = process->pageTable[pageNumber];
+        if (frameNumber == -1) {
+            frameNumber = loadPageIntoMemory(pageNumber, process); 
+        }
+
+        tlb[pageNumber] = frameNumber;
+        return frameNumber * PAGE_SIZE + offset;
+    }
+
+private:
+    int loadPageIntoMemory(int pageNumber, Process* process) {
+        static int nextFrame = 0;
+        process->pageTable[pageNumber] = nextFrame;
+        cout << "Page fault: Loading virtual page " << pageNumber << " into frame " << nextFrame << "\n";
+        return nextFrame++;
+    }
 };
 
 class DustemOS {
 public:
-DustemOS() : loggedIn(false), processCounter(0) {
-users.push_back({"admin" , "password"});
-srand(time(0));
-}
+    DustemOS() : loggedIn(false), processCounter(0), mmu() {
+        users.push_back({"admin", "password"});
+        srand(time(0));
+    }
 
-void runOS() {
-boot();
-while (!loggedIn) {
-loggedIn = login();
-}
-simulate();
-}
+    void runOS() {
+        boot();
+        while (!loggedIn) {
+            loggedIn = login();
+        }
+        simulate();
+    }
 
-void simulate() {
-string schedulingAlgorithm;
-cout << "Enter scheduling algorithm (FCFS or SJF): ";
-cin >> schedulingAlgorithm;
+    void simulate() {
+        string schedulingAlgorithm;
+        cout << "Enter scheduling algorithm (FCFS or SJF): ";
+        cin >> schedulingAlgorithm;
 
-int cycle = 0;
-int cycleLimit = rand() % MAX_CYCLE_LIMIT + 1;
-cout << "Simulation will run for a maximum of " << cycleLimit << " cycles.\n";
+        int cycle = 0;
+        int cycleLimit = rand() % MAX_CYCLE_LIMIT + 1;
+        cout << "Simulation will run for a maximum of " << cycleLimit << " cycles.\n";
 
-queue<Process*> readyQueue;
-vector<Process*> waitingQueue;
-Process* currentProcess = nullptr;
+        queue<Process*> readyQueue;
+        vector<Process*> waitingQueue;
+        Process* currentProcess = nullptr;
 
-while (cycle < cycleLimit) { // Use random cycle limit
-            // Create new process every 5 cycles
+        while (cycle < cycleLimit) {
             if (cycle % 5 == 0) {
                 Process* newProcess = createRandomProcess();
                 readyQueue.push(newProcess);
                 cout << "Cycle " << cycle << ": Process " << newProcess->id << " created.\n";
             }
 
-            // CPU scheduling
             if (currentProcess == nullptr && !readyQueue.empty()) {
                 currentProcess = (schedulingAlgorithm == "FCFS") ? selectFCFS(readyQueue) : selectSJF(readyQueue);
                 currentProcess->state = "running";
                 cout << "Cycle " << cycle << ": Process " << currentProcess->id << " starts running.\n";
             }
 
-            // Process current CPU burst
             if (currentProcess != nullptr) {
                 currentProcess->remainingTime--;
+                if (cycle % 2 == 0) generateMemoryInstruction(currentProcess); 
                 if (currentProcess->remainingTime == 0) {
                     cout << "Cycle " << cycle << ": Process " << currentProcess->id << " completes CPU burst.\n";
                     handleBurstCompletion(currentProcess, readyQueue, waitingQueue);
                     currentProcess = nullptr;
                 }
             }
-
 
 updateWaitingQueue(waitingQueue, readyQueue);
 
